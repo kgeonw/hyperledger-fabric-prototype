@@ -32,6 +32,8 @@ go build
 
 Kim GeonWoo – [@Github](https://github.com/kgeonw) – kgw8919@gmail.com
 
+This refers to - [@Github](https://github.com/wowlsh93/hyperledger-fabric-400)
+
 ## License
 
 Copyright (c) GeonWoo Kim. All rights reserved.

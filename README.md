@@ -18,6 +18,8 @@ go get github.com/kgeonw/hyperledger-fabric-prototype/
 
 ```sh
 cd $GOPATH/src/github.com/kgeonw/hyperledger-fabric-prototype/
+if it fail to do > cd $(go env GOPATH)/src/github.com/kgeonw/hyperledger-fabric-prototype/
+
 go get
 ```
 
@@ -32,7 +34,7 @@ go build
 
 Kim GeonWoo – [@Github](https://github.com/kgeonw) – kgw8919@gmail.com
 
-This refers to - [@Github](https://github.com/wowlsh93/hyperledger-fabric-400)
+Referred to - [@Github](https://github.com/wowlsh93/hyperledger-fabric-400)
 
 ## License
 

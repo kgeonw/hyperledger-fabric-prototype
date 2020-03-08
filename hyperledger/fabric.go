@@ -44,12 +44,14 @@ type LevelDB struct {
 func (db *LevelDB) getValue(key string) string {
 	level_mutex.RLock()
 	defer level_mutex.RUnlock()
+	fmt.Println("LevelDB - GetValue Key:", key)
 	return db.m[key]
 }
 
 func (db *LevelDB) setValue(key string, value string) {
 	level_mutex.Lock()
 	defer level_mutex.Unlock()
+	fmt.Println("LevelDB - SetValue key:", key, "value:", value)
 	db.m[key] = value
 }
 
@@ -77,7 +79,7 @@ type Ledger struct {
 }
 
 func (l *Ledger) createGenesisBlock() {
-	fmt.Println("createGenesisBlock")
+	fmt.Println("Ledger - CreateGenesisBlock")
 	t := time.Now()
 	genesisBlock := _Block{}
 	genesisBlock = _Block{0, t.String(), nil, calculateHash(genesisBlock), ""}
@@ -94,6 +96,7 @@ func (l *Ledger) addBlock(block Block) {
 	newBlock := l.generateBlock(prevBlock, block)
 	l.Blockchain = append(l.Blockchain, newBlock)
 	//spew.Dump(newBlock)
+	fmt.Println("Ledger - Add new Block", block)
 	ledger_mutex.Unlock()
 }
 
@@ -105,14 +108,17 @@ func (o *Ledger) generateBlock(oldBlock _Block, block Block) _Block {
 	newBlock.Timestamp = t.String()
 	newBlock.PrevHash = oldBlock.Hash
 	newBlock.Hash = calculateHash(newBlock)
+	fmt.Println("Ledger - Generate Block", block)
 	return newBlock
 }
 
 func (l *Ledger) setState(trans _Tranaction) {
+	fmt.Println("Ledger - SetState Transaction", trans)
 	l.setValue(trans.key, trans.value)
 }
 
 func (l *Ledger) getState(trans Tranaction) string {
+	fmt.Println("Ledger - GetState Transaction", trans)
 	return l.getValue(trans.key)
 }
 
@@ -143,6 +149,7 @@ func (p *Peer) Start() {
 
 func (p *Peer) addTrans(trans Tranaction) RWSet {
 	p.addtrans <- trans
+	fmt.Println("Peer - Receive transaction from Client", trans)
 	return <-p.endsorseok
 }
 
@@ -158,7 +165,9 @@ func (p *Peer) endorsing() {
 					rwset := RWSet{key: trans.key, value: trans.value, msp: p.msp.id}
 					p.endsorseok <- rwset
 				}
+				fmt.Println("Peer - Excution", trans)
 			case <-p.peer_done:
+				fmt.Println("Peer - Done")
 				return
 			}
 		}
@@ -187,6 +196,7 @@ func (p *Peer) committing() {
 
 func (p *Peer) validating(block Block) bool {
 	if block.endorsers[0] == p.fabric.MSP_peer1 && block.endorsers[1] == p.fabric.MSP_peer2 {
+		fmt.Println("Peer - Validating", block)
 		return true
 	}
 	return false
@@ -202,7 +212,7 @@ type Orderer struct {
 	addrwset     chan RWSet
 	orderer_done chan bool
 	committer    []*Peer
-	kafka        *Kafaka
+	kafka        *Kafka
 
 	fabric *Fabric
 }
@@ -224,6 +234,7 @@ func (o *Orderer) producer() {
 		for {
 			select {
 			case rwset := <-o.addrwset:
+				fmt.Println("Orderer - Send RWSet To Kafka")
 				o.kafka.Push(rwset)
 			case <-o.orderer_done:
 				return
@@ -256,33 +267,33 @@ func (o *Orderer) createBlock(rwsets []RWSet) Block {
 		newBlock.endorsers = append(newBlock.endorsers, rwset.peers_msp[0])
 		newBlock.endorsers = append(newBlock.endorsers, rwset.peers_msp[1])
 	}
-
+	fmt.Println("Order - Create Block")
 	return newBlock
 }
 
 //==================================  KAFKA  =================================//
 var kafka_mutex = &sync.Mutex{}
 
-type Kafaka struct {
+type Kafka struct {
 	Channel []RWSet
 }
 
-func (o *Kafaka) Push(rwset RWSet) {
+func (o *Kafka) Push(rwset RWSet) {
 	kafka_mutex.Lock()
 	defer kafka_mutex.Unlock()
-
+	fmt.Println("Kafka - Push RWSet")
 	o.Channel = append(o.Channel, rwset)
-
 }
 
-func (o *Kafaka) Pull() []RWSet {
+func (o *Kafka) Pull() []RWSet {
 	kafka_mutex.Lock()
 	defer kafka_mutex.Unlock()
 
-	if len(o.Channel) > 2 {
-		three := make([]RWSet, 3)
-		copy(three, o.Channel[:3])
-		o.Channel = append(o.Channel[:0], o.Channel[3:]...)
+	if len(o.Channel) > 0 {
+		three := make([]RWSet, 1)
+		copy(three, o.Channel[:1])
+		o.Channel = append(o.Channel[:0], o.Channel[1:]...)
+		fmt.Println("Kafka - Pull RWSet")
 		return three
 	}
 	return nil
@@ -326,7 +337,7 @@ func (ca *FabricCA) getID() string {
 
 //==================================  FABRIC  =================================//
 type Fabric struct {
-	kafka     *Kafaka
+	kafka     *Kafka
 	orderer1  *Orderer
 	orderer2  *Orderer
 	endorser1 *Peer
@@ -364,7 +375,7 @@ func (fab *Fabric) Start() {
 	fab.committer.Start()
 
 	// 2. kafka simulator start
-	fab.kafka = &Kafaka{}
+	fab.kafka = &Kafka{}
 
 	// 3. two orderer simulator start (first is input, second is ordering)
 	//fab.MSP_orderer1 = fab.ca.getID()
@@ -376,20 +387,21 @@ func (fab *Fabric) Start() {
 	fab.orderer1.Start()
 }
 
-func (fab *Fabric) WriteTranaction(key string, value string, auth string) (RWSet, RWSet) {
+func (fab *Fabric) WriteTransaction(key string, value string, auth string) (RWSet, RWSet) {
 	t := Tranaction{client_msp: auth, key: key, value: value}
 	rwset1 := fab.endorser1.addTrans(t)
 	rwset2 := fab.endorser2.addTrans(t)
 
+	// fmt.Println("OK - Receive To Transaction")
 	return rwset1, rwset2
 }
 
-func (fab *Fabric) ReadTranaction(key string, auth string) string {
+func (fab *Fabric) ReadTransaction(key string, auth string) string {
 	return fab.committer.getData(key)
 }
 
 func (fab *Fabric) SendToOrderer(rwset RWSet) {
-
+	fmt.Println("Orderer - Receive RWSet")
 	fab.orderer1.addRWSet(rwset)
 
 	//if fab.roundrobin {

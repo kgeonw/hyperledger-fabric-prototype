@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -21,21 +22,33 @@ type Message struct {
 func main() {
 	hyperledger.StartFabric()
 
-	hyperledger.WriteTrans("1", "first")
-	hyperledger.WriteTrans("2", "second")
-	hyperledger.WriteTrans("3", "third")
+	var inputKey, inputVal string
+	fmt.Print("Enter (key value): ")
+	_, err := fmt.Scan(&inputKey, &inputVal)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return
+	}
+	fmt.Println(inputKey, inputVal)
+
+	// inputKey = "1"
+	// inputVal = "first"
+
+	hyperledger.WriteTrans(inputKey, inputVal)
+	// hyperledger.WriteTrans("2", "second")
+	// hyperledger.WriteTrans("3", "third")
 
 	time.Sleep(1 * time.Second)
 
-	result1 := hyperledger.GetTrans("1")
-	result2 := hyperledger.GetTrans("2")
-	result3 := hyperledger.GetTrans("3")
+	result1 := hyperledger.GetTrans(inputKey)
+	// result2 := hyperledger.GetTrans("2")
+	// result3 := hyperledger.GetTrans("3")
 
 	time.Sleep(1 * time.Second)
 
-	fmt.Printf("key1 : %s \n", result1)
-	fmt.Printf("key2 : %s \n", result2)
-	fmt.Printf("key3 : %s \n", result3)
+	fmt.Printf("Result - key: %s value: %s\n", inputKey, result1)
+	// fmt.Printf("key2 : %s \n", result2)
+	// fmt.Printf("key3 : %s \n", result3)
 
 	//web_server_run()
 }
